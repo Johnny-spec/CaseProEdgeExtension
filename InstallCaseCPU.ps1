@@ -12,9 +12,15 @@ If (-Not (Test-Admin)) {
     Exit
 }
 
-# Extension ID - will be generated when extension is published
-# For local testing, use the actual extension ID from chrome://extensions
-$global:extensionId = "elhjfifcippogjljafhhginidkbliimn"
+# Extension ID - generated from casecpu.pem private key
+# ID: iojfknjoipjgmobjpeadjciieojgmkhi
+$global:extensionId = "iojfknjoipjgmobjpeadjciieojgmkhi"
+
+# Allowed install sources for external extensions (policy-based installs)
+$global:allowedInstallSources = @(
+    "https://edge.microsoft.com/extensionwebstorebase/v1/crx",
+    "https://raw.githubusercontent.com/*"
+)
 
 # Extension settings JSON - configure update URL based on your hosting
 $global:extSettingsValue = @"
@@ -25,7 +31,7 @@ $global:extSettingsValue = @"
             "*://github.com/*"
         ]
     },
-    "$global:extensionId": {
+    "iojfknjoipjgmobjpeadjciieojgmkhi": {
         "installation_mode": "force_installed",
         "update_url": "https://raw.githubusercontent.com/Johnny-spec/CaseProEdgeExtension/main/updates.xml",
         "toolbar_state": "force_shown"
@@ -97,6 +103,33 @@ Function Add-Extension2($baseKey, $extensionString, $browserName) {
 
     Set-ItemProperty -Path $baseKey -Name "$newValueKey" -Value $extensionString
     Write-Host "Extension installed for $browserName using ExtensionInstallForcelist." -ForegroundColor Green
+}
+
+# Ensure ExtensionInstallSources contains required URLs
+Function Ensure-InstallSources($baseKey, $browserName, $sources) {
+    $sourcesKey = "$baseKey\ExtensionInstallSources"
+    If (-Not (Test-Path $sourcesKey)) {
+        New-Item -Path $sourcesKey -Force | Out-Null
+    }
+
+    $registryData = Get-ItemProperty -Path $sourcesKey -ErrorAction SilentlyContinue
+    $currentValues = @{}
+    If ($registryData) {
+        $registryData.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' } | ForEach-Object {
+            $currentValues[$_.Name] = $_.Value
+        }
+    }
+
+    $existingValues = $currentValues.Values
+    Foreach ($source in $sources) {
+        If ($existingValues -notcontains $source) {
+            $numericKeys = $currentValues.Keys | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ }
+            $newValueKey = If ($numericKeys) { ($numericKeys | Measure-Object -Maximum).Maximum + 1 } Else { 1 }
+            New-ItemProperty -Path $sourcesKey -Name "$newValueKey" -Value $source -PropertyType String -Force | Out-Null
+            $currentValues["$newValueKey"] = $source
+            Write-Host "Added ExtensionInstallSources for ${browserName}: $source" -ForegroundColor Green
+        }
+    }
 }
 
 # Remove extension from registry
@@ -250,6 +283,9 @@ While (-Not $exitLoop) {
         "1" {
             Write-Host "`nInstalling CaseCPU extension..." -ForegroundColor Cyan
             $extensionString = "$global:extensionId;https://raw.githubusercontent.com/Johnny-spec/CaseProEdgeExtension/main/updates.xml"
+
+            Ensure-InstallSources -baseKey $global:edgeKey -browserName "Edge" -sources $global:allowedInstallSources
+            Ensure-InstallSources -baseKey $global:chromeKey -browserName "Chrome" -sources $global:allowedInstallSources
             
             $edgeAdded = Add-Extension1 -baseKey $global:edgeKey -browserName "Edge"
             If (-Not $edgeAdded) {
