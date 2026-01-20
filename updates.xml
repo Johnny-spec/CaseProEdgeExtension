@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
   <app appid='iojfknjoipjgmobjpeadjciieojgmkhi'>
-    <updatecheck codebase='https://raw.githubusercontent.com/Johnny-spec/CaseProEdgeExtension/refs/heads/main/casecpu-extension-1.0.0.crx' version='1.0.0' />
+    <updatecheck codebase='https://raw.githubusercontent.com/Johnny-spec/CaseProEdgeExtension/refs/heads/main/casecpu-extension-1.0.1.crx' version='1.0.1' />
   </app>
 </gupdate>
